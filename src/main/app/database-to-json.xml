@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule version="EE-3.5.1" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:spring="http://www.springframework.org/schema/beans" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+    <db:generic-config doc:name="Generic Database Configuration" driverClassName="com.mysql.jdbc.Driver" name="MySQL_Configuration" url="${jdbc.url}"/>
+    <db:mysql-config name="MySQL_Configuration1" host="localhost" port="3306" user="root" password="admin" database="users" doc:name="MySQL Configuration"/>
+  
+    <flow doc:name="database-to-jsonFlow1" name="database-to-jsonFlow1">
+        <poll doc:name="Poll">
+            <fixed-frequency-scheduler frequency="60000"/>
+            <db:select config-ref="MySQL_Configuration1" doc:name="Perform a query in MySQL">
+                <db:dynamic-query><![CDATA[select latitude,logititude from weather where status='enable';]]></db:dynamic-query>
+            </db:select>
+        </poll>
+        <response>
+            <logger message="message #[message.payload]" level="INFO" doc:name="Logger"/>
+        </response>
+        <logger message="config #[message.payload]" level="INFO" doc:name="Logger"/>
+       
+        <json:json-to-object-transformer returnClass="java.util.List" doc:name="JSON to Object"/>
+        <component class="com.database.polling.post.PollingMuleClient" doc:name="Java"/>
+        <foreach doc:name="For Each">
+            <json:object-to-json-transformer doc:name="Object to JSON"/>
+            <logger message="mesage json #[message.payload]" level="INFO" doc:name="Logger"/>
+            <set-payload value="#[message.payload]" doc:name="Set Payload"/>
+            <http:outbound-endpoint exchange-pattern="one-way" host="localhost" port="8081" path="querying-a-mysql-database-1" method="POST" contentType="application/json" doc:name="HTTP"/>
+        </foreach>
+    </flow>
+</mule>
